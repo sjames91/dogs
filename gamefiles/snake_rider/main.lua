@@ -1,5 +1,16 @@
 
 function love.load()
+    love.graphics.setDefaultFilter('nearest', 'nearest')
+    characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png")
+    
+    snakeheadsprite = love.graphics.newQuad(
+        0, 16,
+        16, 32,
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
+    )
+
+
     snakeSegments = {
         {x=10, y=7},
         {x=9, y=7},
@@ -12,9 +23,9 @@ function love.load()
 
     directionQueue = {'right'}
 
-    cellSize = 40
-    gridXcount = math.floor(1920 / cellSize)
-    gridYcount = math.floor(1200 / cellSize)
+    cellSize = 16
+    gridXcount = math.floor(600 / cellSize)
+    gridYcount = math.floor(600 / cellSize)
 end
 
 function love.update(dt)
@@ -93,18 +104,36 @@ function love.keypressed(key)
 end
 
 function love.draw()
-    local cellSize = 40
+    local cellSize = 128
 
     love.graphics.setColor(1.0, 0.8, 0.9)
-    love.graphics.rectangle(
-        "fill",
+    love.graphics.draw(characterspritesheet1, snakeheadsprite, 0, 0)
+
+    love.graphics.setColor(1, 1, 1)
+
+    love.graphics.draw(characterspritesheet1, 8, 8)
+
+    love.graphics.draw(
+        characterspritesheet1,
+        snakeheadsprite,
+        200, 8,  -- Fixed position to see it clearly
         0,
-        0,
-        gridXcount * cellSize,
-        gridYcount * cellSize
+        4, 4       -- Make it 2x bigger so you can see it
     )
 
-    for segmentIndex, segment in ipairs(snakeSegments) do
+    love.graphics.draw(
+        characterspritesheet1,
+        snakeheadsprite,
+        (snakeSegments[1].x-1) * cellSize,
+        (snakeSegments[1].y-1) * cellSize,
+        0,
+        cellSize / 16,
+        cellSize / 32
+    )
+
+
+    for segmentIndex = 2, #snakeSegments do
+        local segment = snakeSegments[segmentIndex]
         love.graphics.setColor(148/255, 232/255, 240/255)
         love.graphics.rectangle(
             'fill',
