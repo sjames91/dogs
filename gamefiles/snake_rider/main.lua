@@ -1,7 +1,13 @@
-
 function love.load()
     love.graphics.setDefaultFilter('nearest', 'nearest')
     characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
+    cellSize = 64
+    gridWidth = 24
+    gridHeight = 16
+    love.window.setMode(gridWidth * cellSize, gridHeight * cellSize)
+    gridXcount = gridWidth
+    gridYcount = gridHeight
+
     snakeheadsprite1 = love.graphics.newQuad(
         0, 16,
         16, 16,    
@@ -23,23 +29,32 @@ function love.load()
     characterspritesheet1:getHeight()
     )
 
+    redapplesprite = love.graphics.newQuad(
+        18, 32,
+        10, 15,
+
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
+    )
+
 
     snakeSegments = {
         {x=10, y=7},
         {x=10, y=7},
         {x=10, y=7},
-        {x=10, y=7}
     }
    
+    foodposition = {
+        x = love.math.random(1, gridXcount),
+        y = love.math.random(1, gridYcount) 
+    }
+
     time = 0
     countdownTime = 100
     timer = 0
 
-    directionQueue = {'up'}
+    directionQueue = {'null'}
 
-    cellSize = 16
-    gridXcount = math.floor(600 / cellSize)
-    gridYcount = math.floor(600 / cellSize)
 end
 
 function love.update(dt)
@@ -86,7 +101,16 @@ function love.update(dt)
         table.insert(snakeSegments, 1, {
             x = nextXPosition, y = nextYPosition    
         })
-        table.remove(snakeSegments)
+
+        if snakeSegments[1].x == foodposition.x 
+        and snakeSegments[1].y == foodposition.y then
+            foodposition = {
+                x = love.math.random(1, gridXcount),
+                y = love.math.random(1, gridYcount),
+            }
+        else
+            table.remove(snakeSegments)
+        end
     end
 end
 
@@ -118,23 +142,12 @@ function love.keypressed(key)
 end
 
 function love.draw()
-    local cellSize = 128
 
     love.graphics.setColor(1.0, 0.8, 0.9)
     love.graphics.draw(characterspritesheet1, snakeheadsprite1, 0, 0)
-
     love.graphics.setColor(1, 1, 1)
-
-    love.graphics.draw(characterspritesheet1, 8, 8)
-
-    love.graphics.draw(
-        characterspritesheet1,
-        snakeheadsprite1,
-        200, 8,  -- Fixed position to see it clearly
-        0,
-        4, 4       -- Make it 2x bigger so you can see it
-    )
-
+    local offsetX = (love.graphics.getWidth() - (gridXcount * cellSize)) / 2
+    local offsetY = (love.graphics.getHeight() - (gridYcount * cellSize)) / 2
     -- Determine rotation for head based on direction
     local headDir = directionQueue[1] or 'right'
     local headRot = 0
@@ -151,8 +164,8 @@ function love.draw()
     love.graphics.draw(
         characterspritesheet1,
         snakeheadsprite1,
-        (snakeSegments[1].x-1) * cellSize + cellSize/2,
-        (snakeSegments[1].y-1) * cellSize + cellSize/2,
+        (snakeSegments[1].x-1) * cellSize + offsetX + cellSize/2,
+        (snakeSegments[1].y-1) * cellSize + offsetY + cellSize/2,
         headRot,
         cellSize / 16,
         cellSize / 16,
@@ -177,8 +190,8 @@ function love.draw()
         love.graphics.draw(
             characterspritesheet1,
             snakeheadsprite2,
-            (snakeSegments[2].x-1) * cellSize + cellSize/2,
-            (snakeSegments[2].y-1) * cellSize + cellSize/2,
+            (snakeSegments[2].x-1) * cellSize + offsetX + cellSize/2,
+            (snakeSegments[2].y-1) * cellSize + offsetY + cellSize/2,
             secondRot,
             cellSize / 16,
             cellSize / 16,
@@ -205,14 +218,30 @@ function love.draw()
         love.graphics.draw(
             characterspritesheet1,
             snakebodysprite,
-            (curr.x-1) * cellSize + cellSize/2,
-            (curr.y-1) * cellSize + cellSize/2,
+            (curr.x-1) * cellSize + offsetX + cellSize/2,
+            (curr.y-1) * cellSize + offsetY + cellSize/2,
             rot,
             cellSize / 16,
             cellSize / 16,
             8, 8
         )
     end
+
+    -- draw apple (preserve aspect ratio)
+    local qw, qh = 10, 15
+    local margin = 1
+    local scale = math.min((cellSize - margin) / qw, (cellSize - margin) / qh)
+
+    love.graphics.draw(
+        characterspritesheet1,
+        redapplesprite,
+        (foodposition.x-1) * cellSize + offsetX + cellSize/2,
+        (foodposition.y-1) * cellSize + offsetY + cellSize/2,
+        0,
+        scale, scale,
+        qw/2, qh/2
+    )
+
 
     love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
 end
