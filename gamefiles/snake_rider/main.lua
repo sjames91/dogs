@@ -1,8 +1,7 @@
 
 function love.load()
     love.graphics.setDefaultFilter('nearest', 'nearest')
-    characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png")
-    
+    characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
     snakeheadsprite = love.graphics.newQuad(
         0, 16,
         16, 32,
@@ -13,8 +12,8 @@ function love.load()
 
     snakeSegments = {
         {x=10, y=7},
-        {x=9, y=7},
-        {x=8, y=7}
+        {x=8, y=7},
+        {x=7, y=7}
     }
    
     time = 0
@@ -128,7 +127,7 @@ function love.draw()
         (snakeSegments[1].y-1) * cellSize,
         0,
         cellSize / 16,
-        cellSize / 32
+        cellSize / 16
     )
 
 
