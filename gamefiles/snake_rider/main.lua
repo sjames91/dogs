@@ -2,25 +2,40 @@
 function love.load()
     love.graphics.setDefaultFilter('nearest', 'nearest')
     characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
-    snakeheadsprite = love.graphics.newQuad(
+    snakeheadsprite1 = love.graphics.newQuad(
         0, 16,
-        16, 32,
+        16, 16,    
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
+    )
+    snakeheadsprite2 = love.graphics.newQuad(
+        0, 32,
+        16, 16,
+
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
+    )
+    snakebodysprite = love.graphics.newQuad(
+        0, 48,
+        16, 16,
+
+    characterspritesheet1:getWidth(),
+    characterspritesheet1:getHeight()
     )
 
 
     snakeSegments = {
         {x=10, y=7},
-        {x=8, y=7},
-        {x=7, y=7}
+        {x=10, y=7},
+        {x=10, y=7},
+        {x=10, y=7}
     }
    
     time = 0
     countdownTime = 100
     timer = 0
 
-    directionQueue = {'right'}
+    directionQueue = {'up'}
 
     cellSize = 16
     gridXcount = math.floor(600 / cellSize)
@@ -106,7 +121,7 @@ function love.draw()
     local cellSize = 128
 
     love.graphics.setColor(1.0, 0.8, 0.9)
-    love.graphics.draw(characterspritesheet1, snakeheadsprite, 0, 0)
+    love.graphics.draw(characterspritesheet1, snakeheadsprite1, 0, 0)
 
     love.graphics.setColor(1, 1, 1)
 
@@ -114,33 +129,90 @@ function love.draw()
 
     love.graphics.draw(
         characterspritesheet1,
-        snakeheadsprite,
+        snakeheadsprite1,
         200, 8,  -- Fixed position to see it clearly
         0,
         4, 4       -- Make it 2x bigger so you can see it
     )
 
+    -- Determine rotation for head based on direction
+    local headDir = directionQueue[1] or 'right'
+    local headRot = 0
+    if headDir == 'up' then
+        headRot = 0            -- default sprite faces up
+    elseif headDir == 'right' then
+        headRot = math.pi/2    -- 90 degrees
+    elseif headDir == 'down' then
+        headRot = math.pi      -- 180 degrees
+    elseif headDir == 'left' then
+        headRot = math.pi*1.5  -- 270 degrees
+    end
+
     love.graphics.draw(
         characterspritesheet1,
-        snakeheadsprite,
-        (snakeSegments[1].x-1) * cellSize,
-        (snakeSegments[1].y-1) * cellSize,
-        0,
+        snakeheadsprite1,
+        (snakeSegments[1].x-1) * cellSize + cellSize/2,
+        (snakeSegments[1].y-1) * cellSize + cellSize/2,
+        headRot,
         cellSize / 16,
-        cellSize / 16
+        cellSize / 16,
+        8, 8
     )
 
 
-    for segmentIndex = 2, #snakeSegments do
-        local segment = snakeSegments[segmentIndex]
-        love.graphics.setColor(148/255, 232/255, 240/255)
-        love.graphics.rectangle(
-            'fill',
-        (segment.x - 1) * cellSize,
-        (segment.y - 1) * cellSize,
-        cellSize - 1,
-        cellSize - 1
+    -- Draw the second segment (neck)
+    if #snakeSegments > 1 then
+        local dx = snakeSegments[2].x - snakeSegments[1].x
+        local dy = snakeSegments[2].y - snakeSegments[1].y
+        local secondRot = 0
+        if dy == -1 or dy > 1 then
+            secondRot = 0
+        elseif dx == 1 or dx < -1 then
+            secondRot = math.pi*1.5
+        elseif dy == 1 or dy < -1 then
+            secondRot = math.pi
+        elseif dx == -1 or dx > 1 then
+            secondRot = math.pi/2
+        end
+        love.graphics.draw(
+            characterspritesheet1,
+            snakeheadsprite2,
+            (snakeSegments[2].x-1) * cellSize + cellSize/2,
+            (snakeSegments[2].y-1) * cellSize + cellSize/2,
+            secondRot,
+            cellSize / 16,
+            cellSize / 16,
+            8, 8
         )
-    love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
     end
+
+    -- Draw all body segments (from 3rd to last)
+    for i = 3, #snakeSegments do
+        local prev = snakeSegments[i-1]
+        local curr = snakeSegments[i]
+        local dx = curr.x - prev.x
+        local dy = curr.y - prev.y
+        local rot = 0
+        if dy == -1 or dy > 1 then
+            rot = 0
+        elseif dx == 1 or dx < -1 then
+            rot = math.pi*1.5
+        elseif dy == 1 or dy < -1 then
+            rot = math.pi
+        elseif dx == -1 or dx > 1 then
+            rot = math.pi/2
+        end
+        love.graphics.draw(
+            characterspritesheet1,
+            snakebodysprite,
+            (curr.x-1) * cellSize + cellSize/2,
+            (curr.y-1) * cellSize + cellSize/2,
+            rot,
+            cellSize / 16,
+            cellSize / 16,
+            8, 8
+        )
+    end
+
+    love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
 end
