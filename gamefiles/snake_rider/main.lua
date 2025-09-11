@@ -71,7 +71,7 @@ function love.load()
     gridWidth = 24
     gridHeight = 16
     love.window.setMode(gridWidth * cellSize, gridHeight * cellSize)
-    love.window.setTitle("Snake Rider")
+    love.window.setTitle("warmup: snake rider - calaway-2024-game-21")
     gridXcount = gridWidth
     gridYcount = gridHeight
 
@@ -173,7 +173,7 @@ function love.update(dt)
                 {x=12, y=10},
             }
             directionQueue = {'null'}
-            countdownTime = 100
+            countdownTime = 10
             time = 0
             score = 0
             applesEaten = 0
@@ -250,7 +250,7 @@ function love.update(dt)
 
     -- Spawn gold apples much less frequently
     goldAppleSpawnTimer = goldAppleSpawnTimer + dt
-    if goldAppleSpawnTimer >= 20 then -- Every 20 seconds
+    if goldAppleSpawnTimer >= 18 then -- Every 20 seconds
         goldAppleSpawnTimer = 0
         -- Only spawn if there isn't already a gold apple
         local hasGold = false
@@ -284,7 +284,7 @@ function love.update(dt)
 
     timer = timer + dt
     -- Snake moves faster during speed boost
-    local moveSpeed = isSpeedBoosted and 0.075 or 0.15  -- Double speed during boost
+    local moveSpeed = isSpeedBoosted and 0.001 or 0.15  -- Double speed during boost
     if timer >= moveSpeed then
         timer = 0
         time = time + dt
@@ -351,7 +351,7 @@ function love.update(dt)
                     applesEaten = applesEaten + 10
                     -- Activate speed boost for 10 seconds
                     isSpeedBoosted = true
-                    speedBoostTimer = 10.0
+                    speedBoostTimer = 11.0
                     
                     -- Create particle effect at apple position
                     local offsetX = (love.graphics.getWidth() - (gridXcount * cellSize)) / 2
@@ -409,14 +409,21 @@ function love.update(dt)
     end
 end
 
-function love.keypressed(key)
+function love.keypressed(key, scancode)
+
+    if scancode == "y" then key = "down"
+        elseif scancode == "q" then key = "up"
+        elseif scancode == "j" then key = "right"
+        elseif scancode == "b" then key = "left"    
+    end
+
     if key == "escape" then
         love.event.quit()
     end
     
-    if key == "space" and gameState == "waiting" then
+    if key == "up" and gameState == "waiting" then
         gameState = "playing"
-        directionQueue = {'up'}  -- Set initial direction to up
+        directionQueue = {'right'}  -- Set initial direction to up
         spawnApple()  -- Spawn first apple when game starts
         return
     end
@@ -692,9 +699,9 @@ function love.draw()
         love.graphics.setFont(love.graphics.newFont(96))  -- 4x larger than normal text
         local text
         if isNewHighScore then
-            text = "NEW HIGH SCORE: " .. finalScore
+            text = "eh" .. finalScore
         else
-            text = "FINAL SCORE: " .. finalScore
+            text = "git gud" .. finalScore
         end
         local textWidth = love.graphics.getFont():getWidth(text)
         local textHeight = love.graphics.getFont():getHeight()
@@ -704,7 +711,7 @@ function love.draw()
     elseif gameState == "waiting" then
         -- Show "Press Space to Start" above snake's initial position
         love.graphics.setFont(love.graphics.newFont(96))  -- Same size as final score
-        local text = "PRESS SPACE TO START"
+        local text = "PRESS UP TO START"
         local textWidth = love.graphics.getFont():getWidth(text)
         local snakeY = (8-1) * cellSize + offsetY  -- Snake's first segment Y position
         love.graphics.print(text, 
@@ -712,14 +719,14 @@ function love.draw()
             snakeY - (4 * cellSize) - 16)  -- 4 cells higher + 16 pixels above snake
     else
         -- Normal gameplay UI
-        love.graphics.print("TIME LEFT: " .. math.ceil(countdownTime), 10, 10)
-        love.graphics.print("SCORE: " .. score, 10, 40)
+        love.graphics.print(" LEFT:q " .. math.ceil(countdownTime), 10, 10)
+        love.graphics.print("aple: " .. score, 10, 40)
         love.graphics.print("HIGH SCORE: " .. highScore, 10, 70)
         
         -- Show speed boost indicator
         if isSpeedBoosted then
             love.graphics.setColor(1, 1, 0)  -- Yellow text
-            love.graphics.print("SPEED BOOST: " .. string.format("%.1f", speedBoostTimer), 10, 100)
+            love.graphics.print("yur fasy " .. string.format("%.1f", speedBoostTimer), 10, 100)
             love.graphics.setColor(1, 1, 1)  -- Reset to white
         end
     end
