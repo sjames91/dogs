@@ -18,6 +18,7 @@ function spawnApple()
             end
         end
     end
+
     -- Pick a random available position
     if #available > 0 then
         local pos = available[love.math.random(1, #available)]
@@ -25,6 +26,39 @@ function spawnApple()
             x = pos.x, 
             y = pos.y, 
             timer = love.math.random(5, 15) -- Random lifetime 5-15 seconds
+        }
+        table.insert(apples, newApple)
+    end
+end
+
+function spawnGoldApple()
+    local available = {}
+    -- Build a set of occupied positions for fast lookup
+    local occupied = {}
+    for _, segment in ipairs(snakeSegments) do
+        occupied[segment.x .. ',' .. segment.y] = true
+    end
+    -- Mark existing apple positions as occupied
+    for _, apple in ipairs(apples) do
+        occupied[apple.x .. ',' .. apple.y] = true
+    end
+    -- Collect all unoccupied positions
+    for x = 1, gridXcount do
+        for y = 1, gridYcount do
+            if not occupied[x .. ',' .. y] then
+                table.insert(available, {x = x, y = y})
+            end
+        end
+    end
+
+    -- Pick a random available position
+    if #available > 0 then
+        local pos = available[love.math.random(1, #available)]
+        local newApple = {
+            x = pos.x,
+            y = pos.y,
+            timer = love.math.random(8, 12), -- Gold apples last longer
+            gold = true -- Mark as gold apple
         }
         table.insert(apples, newApple)
     end
@@ -64,26 +98,28 @@ function love.load()
     snakeheadsprite2 = love.graphics.newQuad(
         0, 32,
         16, 16,
-
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
     snakebodysprite = love.graphics.newQuad(
         0, 48,
         16, 16,
-
-    characterspritesheet1:getWidth(),
-    characterspritesheet1:getHeight()
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
     )
 
     redapplesprite = love.graphics.newQuad(
         18, 32,
         10, 15,
-
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
-
+    goldapplesprite = love.graphics.newQuad(
+        18, 48,
+        10, 15,
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
+    )
 
     snakeSegments = {
         {x=12, y=8},
@@ -93,6 +129,7 @@ function love.load()
    
     apples = {}  -- Array to hold multiple apples
     appleSpawnTimer = 0  -- Timer for spawning new apples
+    goldAppleSpawnTimer = 0  -- Timer for spawning gold apples
     
     -- Don't spawn initial apple - wait for space press
 
@@ -127,6 +164,7 @@ function love.update(dt)
             applesEaten = 0
             apples = {}
             appleSpawnTimer = 0
+            goldAppleSpawnTimer = 0  -- Reset gold apple timer too
             gameState = "waiting"  -- Start in waiting state
         end
         return  -- Don't process game logic during score display
@@ -154,6 +192,23 @@ function love.update(dt)
         appleSpawnTimer = 0
         if #apples < 5 then  -- Limit to 5 apples on screen
             spawnApple()
+        end
+    end
+
+    -- Spawn gold apples much less frequently
+    goldAppleSpawnTimer = goldAppleSpawnTimer + dt
+    if goldAppleSpawnTimer >= 20 then -- Every 20 seconds
+        goldAppleSpawnTimer = 0
+        -- Only spawn if there isn't already a gold apple
+        local hasGold = false
+        for _, apple in ipairs(apples) do
+            if apple.gold then
+                hasGold = true
+                break
+            end
+        end
+        if not hasGold then
+            spawnGoldApple()
         end
     end
 
@@ -236,7 +291,12 @@ function love.update(dt)
         local appleEaten = false
         for i = #apples, 1, -1 do
             if snakeSegments[1].x == apples[i].x and snakeSegments[1].y == apples[i].y then
-                applesEaten = applesEaten + 1
+                -- Gold apples are worth 10 regular apples
+                if apples[i].gold then
+                    applesEaten = applesEaten + 10
+                else
+                    applesEaten = applesEaten + 1
+                end
                 score = 10 * applesEaten * #snakeSegments  -- Recalculate total score
                 table.remove(apples, i)
                 appleEaten = true
@@ -400,9 +460,11 @@ function love.draw()
     local scale = math.min((cellSize - margin) / qw, (cellSize - margin) / qh)
 
     for _, apple in ipairs(apples) do
+        -- Use gold sprite for gold apples, red sprite for regular apples
+        local sprite = apple.gold and goldapplesprite or redapplesprite
         love.graphics.draw(
             characterspritesheet1,
-            redapplesprite,
+            sprite,
             (apple.x-1) * cellSize + offsetX + cellSize/2,
             (apple.y-1) * cellSize + offsetY + cellSize/2,
             0,
