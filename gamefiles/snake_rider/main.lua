@@ -173,7 +173,7 @@ function love.update(dt)
                 {x=12, y=10},
             }
             directionQueue = {'null'}
-            countdownTime = 10
+            countdownTime = 100
             time = 0
             score = 0
             applesEaten = 0
@@ -250,7 +250,7 @@ function love.update(dt)
 
     -- Spawn gold apples much less frequently
     goldAppleSpawnTimer = goldAppleSpawnTimer + dt
-    if goldAppleSpawnTimer >= 18 then -- Every 20 seconds
+    if goldAppleSpawnTimer >= 1 then -- Every 20 seconds
         goldAppleSpawnTimer = 0
         -- Only spawn if there isn't already a gold apple
         local hasGold = false
@@ -284,7 +284,7 @@ function love.update(dt)
 
     timer = timer + dt
     -- Snake moves faster during speed boost
-    local moveSpeed = isSpeedBoosted and 0.001 or 0.15  -- Double speed during boost
+    local moveSpeed = isSpeedBoosted and 0.075 or 0.15  -- Double speed during boost
     if timer >= moveSpeed then
         timer = 0
         time = time + dt
@@ -411,10 +411,10 @@ end
 
 function love.keypressed(key, scancode)
 
-    if scancode == "y" then key = "down"
-        elseif scancode == "q" then key = "up"
-        elseif scancode == "j" then key = "right"
-        elseif scancode == "b" then key = "left"    
+    if scancode == "s" then key = "down"
+        elseif scancode == "w" then key = "up"
+        elseif scancode == "d" then key = "right"
+        elseif scancode == "a" then key = "left"    
     end
 
     if key == "escape" then
@@ -628,19 +628,7 @@ function love.draw()
                     end
                 end
                 
-                if isCorner then
-                    -- Draw corner piece
-                    love.graphics.draw(
-                        characterspritesheet1,
-                        snakebodycorenersprite,
-                        (curr.x-1) * cellSize + offsetX + cellSize/2,
-                        (curr.y-1) * cellSize + offsetY + cellSize/2,
-                        cornerRot,
-                        cellSize / 15,  -- scale based on corner sprite size (15x15)
-                        cellSize / 15,
-                        7.5, 7.5  -- 15x15 sprite: origin (15/2, 15/2) = (7.5, 7.5)
-                    )
-                else
+                if not isCorner then
                     -- Draw regular body segment
                     local dx = curr.x - prev.x
                     local dy = curr.y - prev.y
@@ -699,9 +687,9 @@ function love.draw()
         love.graphics.setFont(love.graphics.newFont(96))  -- 4x larger than normal text
         local text
         if isNewHighScore then
-            text = "eh" .. finalScore
+            text = "High Score" .. finalScore
         else
-            text = "git gud" .. finalScore
+            text = "Final Score" .. finalScore
         end
         local textWidth = love.graphics.getFont():getWidth(text)
         local textHeight = love.graphics.getFont():getHeight()
@@ -719,14 +707,14 @@ function love.draw()
             snakeY - (4 * cellSize) - 16)  -- 4 cells higher + 16 pixels above snake
     else
         -- Normal gameplay UI
-        love.graphics.print(" LEFT:q " .. math.ceil(countdownTime), 10, 10)
-        love.graphics.print("aple: " .. score, 10, 40)
+        love.graphics.print("TIME LEFT: " .. math.ceil(countdownTime), 10, 10)
+        love.graphics.print("SCORE: " .. score, 10, 40)
         love.graphics.print("HIGH SCORE: " .. highScore, 10, 70)
         
         -- Show speed boost indicator
         if isSpeedBoosted then
             love.graphics.setColor(1, 1, 0)  -- Yellow text
-            love.graphics.print("yur fasy " .. string.format("%.1f", speedBoostTimer), 10, 100)
+            love.graphics.print("SPEED BOOST: " .. string.format("%.1f", speedBoostTimer), 10, 100)
             love.graphics.setColor(1, 1, 1)  -- Reset to white
         end
     end
