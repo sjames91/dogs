@@ -1,3 +1,28 @@
+-- Spawns an apple not on the snake (simple method)
+function spawnApple()
+    local available = {}
+    -- Build a set of occupied positions for fast lookup
+    local occupied = {}
+    for _, segment in ipairs(snakeSegments) do
+        occupied[segment.x .. ',' .. segment.y] = true
+    end
+    -- Collect all unoccupied positions
+    for x = 1, gridXcount do
+        for y = 1, gridYcount do
+            if not occupied[x .. ',' .. y] then
+                table.insert(available, {x = x, y = y})
+            end
+        end
+    end
+    -- Pick a random available position
+    if #available > 0 then
+        local pos = available[love.math.random(1, #available)]
+        apple = {x = pos.x, y = pos.y}
+    else
+        apple = nil -- No space left!
+    end
+end
+
 function love.load()
     love.graphics.setDefaultFilter('nearest', 'nearest')
     characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
@@ -7,6 +32,14 @@ function love.load()
     love.window.setMode(gridWidth * cellSize, gridHeight * cellSize)
     gridXcount = gridWidth
     gridYcount = gridHeight
+
+    -- Load high score from file
+    local saveData = love.filesystem.read("highscore.txt")
+    if saveData then
+        highScore = tonumber(saveData) or 0
+    else
+        highScore = 0
+    end
 
     snakeheadsprite1 = love.graphics.newQuad(
         0, 16,
@@ -39,19 +72,17 @@ function love.load()
 
 
     snakeSegments = {
-        {x=10, y=7},
-        {x=10, y=7},
-        {x=10, y=7},
+        {x=12, y=8},
+        {x=12, y=9},
+        {x=12, y=10},
     }
    
-    foodposition = {
-        x = love.math.random(1, gridXcount),
-        y = love.math.random(1, gridYcount) 
-    }
+    spawnApple()
 
     time = 0
     countdownTime = 100
     timer = 0
+    score = 0
 
     directionQueue = {'null'}
 
@@ -61,17 +92,42 @@ function love.update(dt)
     time = time + dt
     countdownTime = countdownTime - dt
 
+    -- Reset game when timer hits 0
+    if countdownTime <= 0 then
+        -- Calculate final score with segment multiplier (excluding head and neck)
+        local segmentMultiplier = math.max(0, #snakeSegments - 2)
+        local finalScore = score * segmentMultiplier
+        if finalScore > highScore then
+            highScore = finalScore
+            -- Save new high score to file
+            love.filesystem.write("highscore.txt", tostring(highScore))
+        end
+        
+        snakeSegments = {
+            {x=12, y=8},
+            {x=12, y=9},
+            {x=12, y=10},
+        }
+        directionQueue = {'null'}
+        countdownTime = 100
+        time = 0
+        score = 0
+        spawnApple()
+    end
+
     timer = timer + dt
     if timer >= 0.15 then
         timer = 0
         time = time + dt
         
-        if #directionQueue > 1 then
-            table.remove(directionQueue, 1)
-        end
+        -- Only move the snake if it exists
+        if #snakeSegments > 0 and snakeSegments[1] then
+            if #directionQueue > 1 then
+                table.remove(directionQueue, 1)
+            end
 
-        local nextXPosition = snakeSegments[1].x
-        local nextYPosition = snakeSegments[1].y
+            local nextXPosition = snakeSegments[1].x
+            local nextYPosition = snakeSegments[1].y
 
         if directionQueue[1] == 'right' then
             nextXPosition = nextXPosition + 1
@@ -102,15 +158,39 @@ function love.update(dt)
             x = nextXPosition, y = nextYPosition    
         })
 
-        if snakeSegments[1].x == foodposition.x 
-        and snakeSegments[1].y == foodposition.y then
-            foodposition = {
-                x = love.math.random(1, gridXcount),
-                y = love.math.random(1, gridYcount),
-            }
+        -- Check for self-collision and eat tail if so
+        local collisionIndex = nil
+        for i = 2, #snakeSegments do
+            if snakeSegments[1].x == snakeSegments[i].x and snakeSegments[1].y == snakeSegments[i].y then
+                collisionIndex = i
+                break
+            end
+        end
+        if collisionIndex then
+            -- Remove all segments behind the collision point
+            for i = #snakeSegments, collisionIndex, -1 do
+                table.remove(snakeSegments, i)
+            end
+        end
+
+        if apple and snakeSegments[1].x == apple.x 
+        and snakeSegments[1].y == apple.y then
+            score = score + 10
+            spawnApple()
         else
             table.remove(snakeSegments)
         end
+        end -- Close the snake existence check
+    end
+    
+    -- Respawn snake if it's completely gone
+    if #snakeSegments == 0 then
+        snakeSegments = {
+            {x=12, y=8},
+            {x=12, y=9},
+            {x=12, y=10},
+        }
+        directionQueue = {'null'}
     end
 end
 
@@ -161,29 +241,32 @@ function love.draw()
         headRot = math.pi*1.5  -- 270 degrees
     end
 
-    love.graphics.draw(
-        characterspritesheet1,
-        snakeheadsprite1,
-        (snakeSegments[1].x-1) * cellSize + offsetX + cellSize/2,
-        (snakeSegments[1].y-1) * cellSize + offsetY + cellSize/2,
-        headRot,
-        cellSize / 16,
-        cellSize / 16,
-        8, 8
-    )
+    -- Only draw the head if the snake exists
+    if #snakeSegments > 0 and snakeSegments[1] then
+        love.graphics.draw(
+            characterspritesheet1,
+            snakeheadsprite1,
+            (snakeSegments[1].x-1) * cellSize + offsetX + cellSize/2,
+            (snakeSegments[1].y-1) * cellSize + offsetY + cellSize/2,
+            headRot,
+            cellSize / 16,
+            cellSize / 16,
+            8, 8
+        )
+    end
 
 
-    -- Draw the second segment (neck)
-    if #snakeSegments > 1 then
+    -- Draw the second segment (neck) if it exists
+    if #snakeSegments > 1 and snakeSegments[2] then
         local dx = snakeSegments[2].x - snakeSegments[1].x
         local dy = snakeSegments[2].y - snakeSegments[1].y
         local secondRot = 0
         if dy == -1 or dy > 1 then
-            secondRot = 0
+            secondRot = math.pi  -- down (swap with up)
         elseif dx == 1 or dx < -1 then
             secondRot = math.pi*1.5
         elseif dy == 1 or dy < -1 then
-            secondRot = math.pi
+            secondRot = 0        -- up (swap with down)
         elseif dx == -1 or dx > 1 then
             secondRot = math.pi/2
         end
@@ -199,32 +282,36 @@ function love.draw()
         )
     end
 
-    -- Draw all body segments (from 3rd to last)
-    for i = 3, #snakeSegments do
-        local prev = snakeSegments[i-1]
-        local curr = snakeSegments[i]
-        local dx = curr.x - prev.x
-        local dy = curr.y - prev.y
-        local rot = 0
-        if dy == -1 or dy > 1 then
-            rot = 0
-        elseif dx == 1 or dx < -1 then
-            rot = math.pi*1.5
-        elseif dy == 1 or dy < -1 then
-            rot = math.pi
-        elseif dx == -1 or dx > 1 then
-            rot = math.pi/2
+    -- Draw all body segments (from 3rd to last) if they exist
+    if #snakeSegments > 2 then
+        for i = 3, #snakeSegments do
+            local prev = snakeSegments[i-1]
+            local curr = snakeSegments[i]
+            if curr and prev then
+                local dx = curr.x - prev.x
+                local dy = curr.y - prev.y
+                local rot = 0
+                if dy == -1 or dy > 1 then
+                    rot = 0
+                elseif dx == 1 or dx < -1 then
+                    rot = math.pi*1.5
+                elseif dy == 1 or dy < -1 then
+                    rot = math.pi
+                elseif dx == -1 or dx > 1 then
+                    rot = math.pi/2
+                end
+                love.graphics.draw(
+                    characterspritesheet1,
+                    snakebodysprite,
+                    (curr.x-1) * cellSize + offsetX + cellSize/2,
+                    (curr.y-1) * cellSize + offsetY + cellSize/2,
+                    rot,
+                    cellSize / 16,
+                    cellSize / 16,
+                    8, 8
+                )
+            end
         end
-        love.graphics.draw(
-            characterspritesheet1,
-            snakebodysprite,
-            (curr.x-1) * cellSize + offsetX + cellSize/2,
-            (curr.y-1) * cellSize + offsetY + cellSize/2,
-            rot,
-            cellSize / 16,
-            cellSize / 16,
-            8, 8
-        )
     end
 
     -- draw apple (preserve aspect ratio)
@@ -232,16 +319,20 @@ function love.draw()
     local margin = 1
     local scale = math.min((cellSize - margin) / qw, (cellSize - margin) / qh)
 
-    love.graphics.draw(
-        characterspritesheet1,
-        redapplesprite,
-        (foodposition.x-1) * cellSize + offsetX + cellSize/2,
-        (foodposition.y-1) * cellSize + offsetY + cellSize/2,
-        0,
-        scale, scale,
-        qw/2, qh/2
-    )
+    if apple then
+        love.graphics.draw(
+            characterspritesheet1,
+            redapplesprite,
+            (apple.x-1) * cellSize + offsetX + cellSize/2,
+            (apple.y-1) * cellSize + offsetY + cellSize/2,
+            0,
+            scale, scale,
+            qw/2, qh/2
+        )
+    end
 
 
     love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
+    love.graphics.print("Score: " .. score, love.graphics.getWidth() - 120, 10)
+    love.graphics.print("High Score: " .. highScore, love.graphics.getWidth() - 150, 30)
 end
