@@ -37,6 +37,7 @@ function love.load()
     gridWidth = 24
     gridHeight = 16
     love.window.setMode(gridWidth * cellSize, gridHeight * cellSize)
+    love.window.setTitle("Snake Rider")
     gridXcount = gridWidth
     gridYcount = gridHeight
 
@@ -54,6 +55,12 @@ function love.load()
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
+    
+    -- Set window icon to snake head sprite
+    local iconImageData = love.image.newImageData(16, 16)
+    local spritesheet = love.image.newImageData("assets/characters_sprites/characterspritesheet1.png")
+    iconImageData:paste(spritesheet, 0, 0, 0, 16, 16, 16)
+    love.window.setIcon(iconImageData)
     snakeheadsprite2 = love.graphics.newQuad(
         0, 32,
         16, 16,
@@ -87,14 +94,14 @@ function love.load()
     apples = {}  -- Array to hold multiple apples
     appleSpawnTimer = 0  -- Timer for spawning new apples
     
-    -- Spawn initial apple
-    spawnApple()
+    -- Don't spawn initial apple - wait for space press
 
     time = 0
     countdownTime = 100
     timer = 0
     score = 0
-    gameState = "playing"  -- "playing" or "showingScore"
+    applesEaten = 0  -- Track number of apples eaten
+    gameState = "waiting"  -- "waiting", "playing" or "showingScore"
     finalScoreTimer = 0
     finalScore = 0
 
@@ -103,6 +110,33 @@ function love.load()
 end
 
 function love.update(dt)
+    -- Handle score display countdown first
+    if gameState == "showingScore" then
+        finalScoreTimer = finalScoreTimer - dt
+        if finalScoreTimer <= 0 then
+            -- Reset game
+            snakeSegments = {
+                {x=12, y=8},
+                {x=12, y=9},
+                {x=12, y=10},
+            }
+            directionQueue = {'null'}
+            countdownTime = 100
+            time = 0
+            score = 0
+            applesEaten = 0
+            apples = {}
+            appleSpawnTimer = 0
+            gameState = "waiting"  -- Start in waiting state
+        end
+        return  -- Don't process game logic during score display
+    end
+    
+    -- Only update game logic when playing
+    if gameState ~= "playing" then
+        return
+    end
+    
     time = time + dt
     countdownTime = countdownTime - dt
 
@@ -125,11 +159,12 @@ function love.update(dt)
 
     -- Reset game when timer hits 0
     if countdownTime <= 0 and gameState == "playing" then
-        -- Calculate final score with segment multiplier (excluding head and neck)
-        local segmentMultiplier = math.max(0, #snakeSegments - 2)
-        finalScore = score * segmentMultiplier
+        -- Final score is already calculated with the formula
+        finalScore = score
+        isNewHighScore = false
         if finalScore > highScore then
             highScore = finalScore
+            isNewHighScore = true
             -- Save new high score to file
             love.filesystem.write("highscore.txt", tostring(highScore))
         end
@@ -137,28 +172,6 @@ function love.update(dt)
         apples = {}  -- Clear all apples when showing final score
         gameState = "showingScore"
         finalScoreTimer = 5  -- Show for 5 seconds
-    end
-    
-    -- Handle score display countdown
-    if gameState == "showingScore" then
-        finalScoreTimer = finalScoreTimer - dt
-        if finalScoreTimer <= 0 then
-            -- Reset game
-            snakeSegments = {
-                {x=12, y=8},
-                {x=12, y=9},
-                {x=12, y=10},
-            }
-            directionQueue = {'null'}
-            countdownTime = 100
-            time = 0
-            score = 0
-            apples = {}
-            appleSpawnTimer = 0
-            spawnApple()
-            gameState = "playing"
-        end
-        return  -- Don't process game logic during score display
     end
 
     timer = timer + dt
@@ -223,7 +236,8 @@ function love.update(dt)
         local appleEaten = false
         for i = #apples, 1, -1 do
             if snakeSegments[1].x == apples[i].x and snakeSegments[1].y == apples[i].y then
-                score = score + 10
+                applesEaten = applesEaten + 1
+                score = 10 * applesEaten * #snakeSegments  -- Recalculate total score
                 table.remove(apples, i)
                 appleEaten = true
                 break
@@ -232,6 +246,8 @@ function love.update(dt)
         
         if not appleEaten then
             table.remove(snakeSegments)
+            -- Recalculate score after losing a segment
+            score = 10 * applesEaten * #snakeSegments
         end
         end -- Close the snake existence check
     end
@@ -250,6 +266,16 @@ end
 function love.keypressed(key)
     if key == "escape" then
         love.event.quit()
+    end
+    
+    if key == "space" and gameState == "waiting" then
+        gameState = "playing"
+        spawnApple()  -- Spawn first apple when game starts
+        return
+    end
+    
+    if gameState ~= "playing" then
+        return
     end
 
     if key == "right" 
@@ -389,18 +415,32 @@ function love.draw()
     love.graphics.setFont(love.graphics.newFont(24))
     
     if gameState == "showingScore" then
-        -- Show final score in center of screen
+        -- Show final score or new high score in center of screen
         love.graphics.setFont(love.graphics.newFont(96))  -- 4x larger than normal text
-        local text = "Final Score: " .. finalScore
+        local text
+        if isNewHighScore then
+            text = "NEW HIGH SCORE: " .. finalScore
+        else
+            text = "FINAL SCORE: " .. finalScore
+        end
         local textWidth = love.graphics.getFont():getWidth(text)
         local textHeight = love.graphics.getFont():getHeight()
         love.graphics.print(text, 
             (love.graphics.getWidth() - textWidth) / 2,
             (love.graphics.getHeight() - textHeight) / 2)
+    elseif gameState == "waiting" then
+        -- Show "Press Space to Start" above snake's initial position
+        love.graphics.setFont(love.graphics.newFont(96))  -- Same size as final score
+        local text = "PRESS SPACE TO START"
+        local textWidth = love.graphics.getFont():getWidth(text)
+        local snakeY = (8-1) * cellSize + offsetY  -- Snake's first segment Y position
+        love.graphics.print(text, 
+            (love.graphics.getWidth() - textWidth) / 2,
+            snakeY - (4 * cellSize) - 16)  -- 4 cells higher + 16 pixels above snake
     else
         -- Normal gameplay UI
-        love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
-        love.graphics.print("Score: " .. score, love.graphics.getWidth() - 200, 10)
-        love.graphics.print("High Score: " .. highScore, love.graphics.getWidth() - 230, 40)
+        love.graphics.print("TIME LEFT: " .. math.ceil(countdownTime), 10, 10)
+        love.graphics.print("SCORE: " .. score, 10, 40)
+        love.graphics.print("HIGH SCORE: " .. highScore, 10, 70)
     end
 end
