@@ -1,10 +1,14 @@
--- Spawns an apple not on the snake (simple method)
+-- Spawns an apple not on the snake or other apples
 function spawnApple()
     local available = {}
     -- Build a set of occupied positions for fast lookup
     local occupied = {}
     for _, segment in ipairs(snakeSegments) do
         occupied[segment.x .. ',' .. segment.y] = true
+    end
+    -- Mark existing apple positions as occupied
+    for _, apple in ipairs(apples) do
+        occupied[apple.x .. ',' .. apple.y] = true
     end
     -- Collect all unoccupied positions
     for x = 1, gridXcount do
@@ -17,9 +21,12 @@ function spawnApple()
     -- Pick a random available position
     if #available > 0 then
         local pos = available[love.math.random(1, #available)]
-        apple = {x = pos.x, y = pos.y}
-    else
-        apple = nil -- No space left!
+        local newApple = {
+            x = pos.x, 
+            y = pos.y, 
+            timer = love.math.random(5, 15) -- Random lifetime 5-15 seconds
+        }
+        table.insert(apples, newApple)
     end
 end
 
@@ -77,12 +84,19 @@ function love.load()
         {x=12, y=10},
     }
    
+    apples = {}  -- Array to hold multiple apples
+    appleSpawnTimer = 0  -- Timer for spawning new apples
+    
+    -- Spawn initial apple
     spawnApple()
 
     time = 0
     countdownTime = 100
     timer = 0
     score = 0
+    gameState = "playing"  -- "playing" or "showingScore"
+    finalScoreTimer = 0
+    finalScore = 0
 
     directionQueue = {'null'}
 
@@ -92,27 +106,59 @@ function love.update(dt)
     time = time + dt
     countdownTime = countdownTime - dt
 
+    -- Update apple timers and remove expired apples
+    for i = #apples, 1, -1 do
+        apples[i].timer = apples[i].timer - dt
+        if apples[i].timer <= 0 then
+            table.remove(apples, i)
+        end
+    end
+    
+    -- Spawn new apples periodically
+    appleSpawnTimer = appleSpawnTimer + dt
+    if appleSpawnTimer >= 1.5 then  -- Spawn every 1.5 seconds (twice as fast)
+        appleSpawnTimer = 0
+        if #apples < 5 then  -- Limit to 5 apples on screen
+            spawnApple()
+        end
+    end
+
     -- Reset game when timer hits 0
-    if countdownTime <= 0 then
+    if countdownTime <= 0 and gameState == "playing" then
         -- Calculate final score with segment multiplier (excluding head and neck)
         local segmentMultiplier = math.max(0, #snakeSegments - 2)
-        local finalScore = score * segmentMultiplier
+        finalScore = score * segmentMultiplier
         if finalScore > highScore then
             highScore = finalScore
             -- Save new high score to file
             love.filesystem.write("highscore.txt", tostring(highScore))
         end
         
-        snakeSegments = {
-            {x=12, y=8},
-            {x=12, y=9},
-            {x=12, y=10},
-        }
-        directionQueue = {'null'}
-        countdownTime = 100
-        time = 0
-        score = 0
-        spawnApple()
+        apples = {}  -- Clear all apples when showing final score
+        gameState = "showingScore"
+        finalScoreTimer = 5  -- Show for 5 seconds
+    end
+    
+    -- Handle score display countdown
+    if gameState == "showingScore" then
+        finalScoreTimer = finalScoreTimer - dt
+        if finalScoreTimer <= 0 then
+            -- Reset game
+            snakeSegments = {
+                {x=12, y=8},
+                {x=12, y=9},
+                {x=12, y=10},
+            }
+            directionQueue = {'null'}
+            countdownTime = 100
+            time = 0
+            score = 0
+            apples = {}
+            appleSpawnTimer = 0
+            spawnApple()
+            gameState = "playing"
+        end
+        return  -- Don't process game logic during score display
     end
 
     timer = timer + dt
@@ -173,11 +219,18 @@ function love.update(dt)
             end
         end
 
-        if apple and snakeSegments[1].x == apple.x 
-        and snakeSegments[1].y == apple.y then
-            score = score + 10
-            spawnApple()
-        else
+        -- Check for apple collision
+        local appleEaten = false
+        for i = #apples, 1, -1 do
+            if snakeSegments[1].x == apples[i].x and snakeSegments[1].y == apples[i].y then
+                score = score + 10
+                table.remove(apples, i)
+                appleEaten = true
+                break
+            end
+        end
+        
+        if not appleEaten then
             table.remove(snakeSegments)
         end
         end -- Close the snake existence check
@@ -222,10 +275,11 @@ function love.keypressed(key)
 end
 
 function love.draw()
-
-    love.graphics.setColor(1.0, 0.8, 0.9)
-    love.graphics.draw(characterspritesheet1, snakeheadsprite1, 0, 0)
-    love.graphics.setColor(1, 1, 1)
+    -- Set background color and fill the screen
+    love.graphics.setColor(1.0, 0.8, 0.9)  -- Pink background
+    love.graphics.rectangle("fill", 0, 0, love.graphics.getWidth(), love.graphics.getHeight())
+    
+    love.graphics.setColor(1, 1, 1)  -- Reset to white for other drawing
     local offsetX = (love.graphics.getWidth() - (gridXcount * cellSize)) / 2
     local offsetY = (love.graphics.getHeight() - (gridYcount * cellSize)) / 2
     -- Determine rotation for head based on direction
@@ -314,12 +368,12 @@ function love.draw()
         end
     end
 
-    -- draw apple (preserve aspect ratio)
+    -- draw apples (preserve aspect ratio)
     local qw, qh = 10, 15
     local margin = 1
     local scale = math.min((cellSize - margin) / qw, (cellSize - margin) / qh)
 
-    if apple then
+    for _, apple in ipairs(apples) do
         love.graphics.draw(
             characterspritesheet1,
             redapplesprite,
@@ -331,8 +385,22 @@ function love.draw()
         )
     end
 
-
-    love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
-    love.graphics.print("Score: " .. score, love.graphics.getWidth() - 120, 10)
-    love.graphics.print("High Score: " .. highScore, love.graphics.getWidth() - 150, 30)
+    -- Set larger font for text
+    love.graphics.setFont(love.graphics.newFont(24))
+    
+    if gameState == "showingScore" then
+        -- Show final score in center of screen
+        love.graphics.setFont(love.graphics.newFont(96))  -- 4x larger than normal text
+        local text = "Final Score: " .. finalScore
+        local textWidth = love.graphics.getFont():getWidth(text)
+        local textHeight = love.graphics.getFont():getHeight()
+        love.graphics.print(text, 
+            (love.graphics.getWidth() - textWidth) / 2,
+            (love.graphics.getHeight() - textHeight) / 2)
+    else
+        -- Normal gameplay UI
+        love.graphics.print("Time Left: " .. math.ceil(countdownTime), 10, 10)
+        love.graphics.print("Score: " .. score, love.graphics.getWidth() - 200, 10)
+        love.graphics.print("High Score: " .. highScore, love.graphics.getWidth() - 230, 40)
+    end
 end
