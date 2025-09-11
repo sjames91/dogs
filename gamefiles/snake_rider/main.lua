@@ -96,30 +96,38 @@ function love.load()
     iconImageData:paste(spritesheet, 0, 0, 0, 16, 16, 16)
     love.window.setIcon(iconImageData)
     snakeheadsprite2 = love.graphics.newQuad(
-        0, 32,
-        16, 16,
+        1, 32,
+        14, 16,
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
     snakebodysprite = love.graphics.newQuad(
-        0, 48,
-        16, 16,
+        1, 48,
+        14, 16,
+        characterspritesheet1:getWidth(),
+        characterspritesheet1:getHeight()
+    )
+
+    snakebodycorenersprite = love.graphics.newQuad(
+        32, 0,
+        15, 15,  -- add missing comma
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
 
     redapplesprite = love.graphics.newQuad(
-        18, 32,
+        15, 31,
         10, 15,
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
     goldapplesprite = love.graphics.newQuad(
-        18, 48,
+        15, 46,
         10, 15,
         characterspritesheet1:getWidth(),
         characterspritesheet1:getHeight()
     )
+
 
     snakeSegments = {
         {x=12, y=8},
@@ -141,9 +149,16 @@ function love.load()
     gameState = "waiting"  -- "waiting", "playing" or "showingScore"
     finalScoreTimer = 0
     finalScore = 0
-
-    directionQueue = {'null'}
-
+    directionQueue = {'up'}
+    
+    -- Add speed boost variables
+    speedBoostTimer = 0
+    isSpeedBoosted = false
+    
+    -- Add visual effects
+    flashTimer = 0
+    isFlashing = false
+    particles = {}  -- Array to hold particle effects
 end
 
 function love.update(dt)
@@ -165,6 +180,13 @@ function love.update(dt)
             apples = {}
             appleSpawnTimer = 0
             goldAppleSpawnTimer = 0  -- Reset gold apple timer too
+            -- Reset speed boost
+            isSpeedBoosted = false
+            speedBoostTimer = 0
+            -- Reset visual effects
+            isFlashing = false
+            flashTimer = 0
+            particles = {}
             gameState = "waiting"  -- Start in waiting state
         end
         return  -- Don't process game logic during score display
@@ -186,11 +208,42 @@ function love.update(dt)
         end
     end
     
-    -- Spawn new apples periodically
+    -- Update speed boost timer
+    if isSpeedBoosted then
+        speedBoostTimer = speedBoostTimer - dt
+        if speedBoostTimer <= 0 then
+            isSpeedBoosted = false
+            speedBoostTimer = 0
+            isFlashing = false  -- Stop flashing when boost ends
+        end
+    end
+
+    -- Update flash timer
+    if isFlashing then
+        flashTimer = flashTimer - dt
+        if flashTimer <= 0 then
+            isFlashing = false
+        end
+    end
+
+    -- Update particles
+    for i = #particles, 1, -1 do
+        particles[i].timer = particles[i].timer - dt
+        if particles[i].timer <= 0 then
+            table.remove(particles, i)
+        else
+            -- Move particle
+            particles[i].x = particles[i].x + particles[i].vx * dt
+            particles[i].y = particles[i].y + particles[i].vy * dt
+        end
+    end
+
+    -- Spawn new apples periodically (faster during speed boost)
     appleSpawnTimer = appleSpawnTimer + dt
-    if appleSpawnTimer >= 1.5 then  -- Spawn every 1.5 seconds (twice as fast)
+    local spawnRate = isSpeedBoosted and 0.75 or 1.5  -- Twice as fast during boost
+    if appleSpawnTimer >= spawnRate then
         appleSpawnTimer = 0
-        if #apples < 5 then  -- Limit to 5 apples on screen
+        if #apples < 10 then  -- Limit to 10 apples on screen
             spawnApple()
         end
     end
@@ -230,7 +283,9 @@ function love.update(dt)
     end
 
     timer = timer + dt
-    if timer >= 0.15 then
+    -- Snake moves faster during speed boost
+    local moveSpeed = isSpeedBoosted and 0.075 or 0.15  -- Double speed during boost
+    if timer >= moveSpeed then
         timer = 0
         time = time + dt
         
@@ -294,8 +349,39 @@ function love.update(dt)
                 -- Gold apples are worth 10 regular apples
                 if apples[i].gold then
                     applesEaten = applesEaten + 10
+                    -- Activate speed boost for 10 seconds
+                    isSpeedBoosted = true
+                    speedBoostTimer = 10.0
+                    
+                    -- Create particle effect at apple position
+                    local offsetX = (love.graphics.getWidth() - (gridXcount * cellSize)) / 2
+                    local offsetY = (love.graphics.getHeight() - (gridYcount * cellSize)) / 2
+                    local centerX = (apples[i].x-1) * cellSize + offsetX + cellSize/2
+                    local centerY = (apples[i].y-1) * cellSize + offsetY + cellSize/2
+                    
+                    -- Create 12 particles in different directions
+                    for j = 1, 12 do
+                        local angle = (j / 12) * math.pi * 2
+                        local speed = love.math.random(100, 200)
+                        table.insert(particles, {
+                            x = centerX,
+                            y = centerY,
+                            vx = math.cos(angle) * speed,
+                            vy = math.sin(angle) * speed,
+                            timer = 0.3,
+                            maxTimer = 0.3
+                        })
+                    end
+                    
+                    -- Start flashing during boost
+                    isFlashing = true
+                    flashTimer = speedBoostTimer  -- Flash for entire boost duration
                 else
                     applesEaten = applesEaten + 1
+                    -- Add 1 second to boost timer if currently boosted
+                    if isSpeedBoosted then
+                        speedBoostTimer = speedBoostTimer + 0.25
+                    end
                 end
                 score = 10 * applesEaten * #snakeSegments  -- Recalculate total score
                 table.remove(apples, i)
@@ -319,7 +405,7 @@ function love.update(dt)
             {x=12, y=9},
             {x=12, y=10},
         }
-        directionQueue = {'null'}
+        directionQueue = {'up'}
     end
 end
 
@@ -330,6 +416,7 @@ function love.keypressed(key)
     
     if key == "space" and gameState == "waiting" then
         gameState = "playing"
+        directionQueue = {'up'}  -- Set initial direction to up
         spawnApple()  -- Spawn first apple when game starts
         return
     end
@@ -381,6 +468,27 @@ function love.draw()
         headRot = math.pi*1.5  -- 270 degrees
     end
 
+    -- Determine snake color based on boost and flash state
+    local snakeColor = {1, 1, 1}  -- Default white
+    if isSpeedBoosted then
+        if isFlashing then
+            -- Alternate between gold and white every 0.1 seconds
+            local flashCycle = math.floor(love.timer.getTime() / 0.1) % 2
+            if flashCycle == 0 then
+                snakeColor = {1, 0.84, 0}  -- Gold
+            else
+                snakeColor = {1, 1, 1}     -- White
+            end
+        else
+            snakeColor = {1, 0.84, 0}  -- Solid gold during boost
+        end
+    else
+        -- Boost has ended - force normal white color
+        snakeColor = {1, 1, 1}  -- White
+    end
+    
+    love.graphics.setColor(snakeColor[1], snakeColor[2], snakeColor[3])
+
     -- Only draw the head if the snake exists
     if #snakeSegments > 0 and snakeSegments[1] then
         love.graphics.draw(
@@ -391,10 +499,9 @@ function love.draw()
             headRot,
             cellSize / 16,
             cellSize / 16,
-            8, 8
+            8, 8  -- 16x16 sprite: origin (16/2, 16/2) = (8, 8)
         )
     end
-
 
     -- Draw the second segment (neck) if it exists
     if #snakeSegments > 1 and snakeSegments[2] then
@@ -416,9 +523,9 @@ function love.draw()
             (snakeSegments[2].x-1) * cellSize + offsetX + cellSize/2,
             (snakeSegments[2].y-1) * cellSize + offsetY + cellSize/2,
             secondRot,
+            cellSize / 14,
             cellSize / 16,
-            cellSize / 16,
-            8, 8
+            7, 8  -- 14x16 sprite: origin (14/2, 16/2) = (7, 8)
         )
     end
 
@@ -427,32 +534,136 @@ function love.draw()
         for i = 3, #snakeSegments do
             local prev = snakeSegments[i-1]
             local curr = snakeSegments[i]
+            local next = snakeSegments[i+1]
+            
             if curr and prev then
-                local dx = curr.x - prev.x
-                local dy = curr.y - prev.y
-                local rot = 0
-                if dy == -1 or dy > 1 then
-                    rot = 0
-                elseif dx == 1 or dx < -1 then
-                    rot = math.pi*1.5
-                elseif dy == 1 or dy < -1 then
-                    rot = math.pi
-                elseif dx == -1 or dx > 1 then
-                    rot = math.pi/2
+                -- Check if this is a corner (turning) segment
+                local isCorner = false
+                local cornerRot = 0
+                
+                if next then
+                    -- Get direction vectors
+                    local dx1 = prev.x - curr.x  -- direction from current to previous
+                    local dy1 = prev.y - curr.y
+                    local dx2 = next.x - curr.x  -- direction from current to next
+                    local dy2 = next.y - curr.y
+                    
+                    -- Normalize wrap-around movements
+                    if dx1 > 1 then dx1 = dx1 - gridXcount end
+                    if dx1 < -1 then dx1 = dx1 + gridXcount end
+                    if dy1 > 1 then dy1 = dy1 - gridYcount end
+                    if dy1 < -1 then dy1 = dy1 + gridYcount end
+                    if dx2 > 1 then dx2 = dx2 - gridXcount end
+                    if dx2 < -1 then dx2 = dx2 + gridXcount end
+                    if dy2 > 1 then dy2 = dy2 - gridYcount end
+                    if dy2 < -1 then dy2 = dy2 + gridYcount end
+                    
+                    -- Only corner if THIS is where direction changed (check with segment behind it)
+                    if i < #snakeSegments then
+                        local behind = snakeSegments[i+1]
+                        if behind then
+                            local dx3 = curr.x - behind.x  -- direction from behind to current
+                            local dy3 = curr.y - behind.y
+                            
+                            -- Normalize wrap-around
+                            if dx3 > 1 then dx3 = dx3 - gridXcount end
+                            if dx3 < -1 then dx3 = dx3 + gridXcount end
+                            if dy3 > 1 then dy3 = dy3 - gridYcount end
+                            if dy3 < -1 then dy3 = dy3 + gridYcount end
+                            
+                            -- Corner only if direction FROM behind is different than direction TO next
+                            if (dx1 ~= dx3) or (dy1 ~= dy3) then
+                                isCorner = true
+                            end
+                        end
+                    end
+                    
+                    if isCorner then
+                        -- Determine corner rotation and flipping based on turn direction
+                        -- Base sprite is left→up, so we rotate/flip from that reference
+                        local scaleX = cellSize / 15
+                        local scaleY = cellSize / 15
+                        
+                        if dx1 == 0 and dy1 == 1 and dx2 == -1 and dy2 == 0 then -- down to left
+                            cornerRot = 0  -- no rotation
+                            scaleY = -scaleY  -- flip Y (horizontal flip)
+                        elseif dx1 == -1 and dy1 == 0 and dx2 == 0 and dy2 == -1 then -- left to up
+                            cornerRot = 0  -- Base orientation (left→up)
+                        elseif dx1 == 0 and dy1 == -1 and dx2 == 1 and dy2 == 0 then -- up to right
+                            cornerRot = 0  -- no rotation
+                            scaleX = -scaleX  -- flip X (vertical flip)
+                            scaleY = -scaleY  -- flip Y (horizontal flip)
+                        elseif dx1 == 1 and dy1 == 0 and dx2 == 0 and dy2 == 1 then -- right to down
+                            cornerRot = 0  -- no rotation
+                            scaleX = -scaleX  -- flip X (vertical flip)
+                        elseif dx1 == 0 and dy1 == 1 and dx2 == 1 and dy2 == 0 then -- down to right
+                            cornerRot = math.pi/2  -- 90° rotation
+                        elseif dx1 == 1 and dy1 == 0 and dx2 == 0 and dy2 == -1 then -- right to up
+                            cornerRot = math.pi  -- 180° rotation
+                        elseif dx1 == 0 and dy1 == -1 and dx2 == -1 and dy2 == 0 then -- up to left
+                            cornerRot = math.pi*1.5  -- 270° rotation
+                        elseif dx1 == -1 and dy1 == 0 and dx2 == 0 and dy2 == 1 then -- left to down
+                            cornerRot = 0  -- no rotation
+                            scaleX = -scaleX  -- flip X (vertical flip)
+                        end
+                        
+                        -- Draw corner piece with flipping
+                        love.graphics.draw(
+                            characterspritesheet1,
+                            snakebodycorenersprite,
+                            (curr.x-1) * cellSize + offsetX + cellSize/2,
+                            (curr.y-1) * cellSize + offsetY + cellSize/2,
+                            cornerRot,
+                            scaleX,  -- Can be negative for flipping
+                            scaleY,  -- Can be negative for flipping
+                            7.5, 7.5  -- 15x15 sprite: origin (15/2, 15/2) = (7.5, 7.5)
+                        )
+                    end
                 end
-                love.graphics.draw(
-                    characterspritesheet1,
-                    snakebodysprite,
-                    (curr.x-1) * cellSize + offsetX + cellSize/2,
-                    (curr.y-1) * cellSize + offsetY + cellSize/2,
-                    rot,
-                    cellSize / 16,
-                    cellSize / 16,
-                    8, 8
-                )
+                
+                if isCorner then
+                    -- Draw corner piece
+                    love.graphics.draw(
+                        characterspritesheet1,
+                        snakebodycorenersprite,
+                        (curr.x-1) * cellSize + offsetX + cellSize/2,
+                        (curr.y-1) * cellSize + offsetY + cellSize/2,
+                        cornerRot,
+                        cellSize / 15,  -- scale based on corner sprite size (15x15)
+                        cellSize / 15,
+                        7.5, 7.5  -- 15x15 sprite: origin (15/2, 15/2) = (7.5, 7.5)
+                    )
+                else
+                    -- Draw regular body segment
+                    local dx = curr.x - prev.x
+                    local dy = curr.y - prev.y
+                    local rot = 0
+                    if dy == -1 or dy > 1 then
+                        rot = 0
+                    elseif dx == 1 or dx < -1 then
+                        rot = math.pi*1.5
+                    elseif dy == 1 or dy < -1 then
+                        rot = math.pi
+                    elseif dx == -1 or dx > 1 then
+                        rot = math.pi/2
+                    end
+                    love.graphics.draw(
+                        characterspritesheet1,
+                        snakebodysprite,
+                        (curr.x-1) * cellSize + offsetX + cellSize/2,
+                        (curr.y-1) * cellSize + offsetY + cellSize/2,
+                        rot,
+                        cellSize / 14,
+                        cellSize / 16,
+                        7, 8  -- 14x16 sprite: origin (14/2, 16/2) = (7, 8)
+                    )
+                end
             end
         end
     end
+    
+    -- Reset color to white before drawing UI and other elements
+    love.graphics.setColor(1, 1, 1)
 
     -- draw apples (preserve aspect ratio)
     local qw, qh = 10, 15
@@ -504,5 +715,24 @@ function love.draw()
         love.graphics.print("TIME LEFT: " .. math.ceil(countdownTime), 10, 10)
         love.graphics.print("SCORE: " .. score, 10, 40)
         love.graphics.print("HIGH SCORE: " .. highScore, 10, 70)
+        
+        -- Show speed boost indicator
+        if isSpeedBoosted then
+            love.graphics.setColor(1, 1, 0)  -- Yellow text
+            love.graphics.print("SPEED BOOST: " .. string.format("%.1f", speedBoostTimer), 10, 100)
+            love.graphics.setColor(1, 1, 1)  -- Reset to white
+        end
     end
+
+    -- Reset color to white for other drawing
+    love.graphics.setColor(1, 1, 1)
+
+    -- Draw particles
+    for _, particle in ipairs(particles) do
+        local alpha = particle.timer / particle.maxTimer  -- Fade out over time
+        love.graphics.setColor(1, 0.84, 0, alpha)  -- Gold with fading alpha
+        love.graphics.circle("fill", particle.x, particle.y, 3)  -- Small 3-pixel circles
+    end
+    
+    love.graphics.setColor(1, 1, 1)  -- Reset color
 end
