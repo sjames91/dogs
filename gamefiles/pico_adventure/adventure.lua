@@ -5,10 +5,8 @@ function _init()
 end
 
 function _update()
-    local player_moved = move_player()
-    if player_moved then
-        camera_map()
-    end
+    move_player()
+    camera_map()
 end
 
 function _draw()   
