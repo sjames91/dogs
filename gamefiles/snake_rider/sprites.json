@@ -1,0 +1,13 @@
+{
+  "spriteSheet": {
+    "image": "assets/characters_sprites/characterspritesheet1.png",
+    "sprites": {
+      "SNAKE_HEAD_1": {"x": 0, "y": 16, "w": 16, "h": 16},
+      "SNAKE_HEAD_2": {"x": 1, "y": 32, "w": 14, "h": 16},
+      "SNAKE_BODY": {"x": 1, "y": 48, "w": 14, "h": 16},
+      "SNAKE_BODY_CORNER": {"x": 32, "y": 0, "w": 15, "h": 15},
+      "RED_APPLE": {"x": 15, "y": 31, "w": 10, "h": 15},
+      "GOLD_APPLE": {"x": 15, "y": 46, "w": 10, "h": 15}
+    }
+  }
+}

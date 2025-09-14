@@ -1,14 +1,30 @@
 
 local apple_spawns = require("item_spawns")
+local config = require("game_config")
+local SpriteManager = require("sprite_manager")
+
+-- Global sprite managers
+local sprites -- Main character sprites
 
 function love.load() 
     love.graphics.setDefaultFilter('nearest', 'nearest')
-    characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
-    cellSize = 64
-    gridWidth = 24
-    gridHeight = 16
-    love.window.setMode(gridWidth * cellSize, gridHeight * cellSize)
-    love.window.setTitle("warmup: snake rider - calaway-2024-game-21")
+    
+    -- Initialize sprite managers for different sprite sheets
+    sprites = SpriteManager.register("CHARACTERS", 
+        config.SPRITE_SHEETS.CHARACTERS.path, 
+        config.SPRITE_SHEETS.CHARACTERS.sprites)
+    
+    -- Future sprite managers would be:
+    -- SpriteManager.register("UI", config.SPRITE_SHEETS.UI.path, config.SPRITE_SHEETS.UI.sprites)
+    -- SpriteManager.register("EFFECTS", config.SPRITE_SHEETS.EFFECTS.path, config.SPRITE_SHEETS.EFFECTS.sprites)
+    
+    -- Or load from JSON:
+    -- SpriteManager.registerFromJSON("CHARACTERS", "sprites.json")
+    
+    cellSize = config.CELL_SIZE
+    gridWidth = config.GRID_WIDTH
+    gridHeight = config.GRID_HEIGHT
+    -- Window size and title are now set in conf.lua
     gridXcount = gridWidth
     gridYcount = gridHeight
 
@@ -20,51 +36,11 @@ function love.load()
         highScore = 0
     end
 
-    snakeheadsprite1 = love.graphics.newQuad(
-        0, 16,
-        16, 16,    
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-    
     -- Set window icon to snake head sprite
     local iconImageData = love.image.newImageData(16, 16)
-    local spritesheet = love.image.newImageData("assets/characters_sprites/characterspritesheet1.png")
+    local spritesheet = love.image.newImageData(config.SPRITE_PATH)
     iconImageData:paste(spritesheet, 0, 0, 0, 16, 16, 16)
     love.window.setIcon(iconImageData)
-    snakeheadsprite2 = love.graphics.newQuad(
-        1, 32,
-        14, 16,
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-    snakebodysprite = love.graphics.newQuad(
-        1, 48,
-        14, 16,
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-
-    snakebodycorenersprite = love.graphics.newQuad(
-        32, 0,
-        15, 15,  -- add missing comma
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-
-    redapplesprite = love.graphics.newQuad(
-        15, 31,
-        10, 15,
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-    goldapplesprite = love.graphics.newQuad(
-        15, 46,
-        10, 15,
-        characterspritesheet1:getWidth(),
-        characterspritesheet1:getHeight()
-    )
-
 
     snakeSegments = {
         {x=12, y=8},
@@ -79,7 +55,7 @@ function love.load()
     -- Don't spawn initial apple - wait for space press
 
     time = 0
-    countdownTime = 100
+    countdownTime = config.GAME_DURATION
     timer = 0
     score = 0
     applesEaten = 0  -- Track number of apples eaten
@@ -110,7 +86,7 @@ function love.update(dt)
                 {x=12, y=10},
             }
             directionQueue = {'null'}
-            countdownTime = 100
+            countdownTime = config.GAME_DURATION
             time = 0
             score = 0
             applesEaten = 0
@@ -435,9 +411,8 @@ function love.draw()
 
     -- Only draw the head if the snake exists
     if #snakeSegments > 0 and snakeSegments[1] then
-        love.graphics.draw(
-            characterspritesheet1,
-            snakeheadsprite1,
+        sprites:draw(
+            "SNAKE_HEAD_1",
             (snakeSegments[1].x-1) * cellSize + offsetX + cellSize/2,
             (snakeSegments[1].y-1) * cellSize + offsetY + cellSize/2,
             headRot,
@@ -461,9 +436,8 @@ function love.draw()
         elseif dx == -1 or dx > 1 then
             secondRot = math.pi/2
         end
-        love.graphics.draw(
-            characterspritesheet1,
-            snakeheadsprite2,
+        sprites:draw(
+            "SNAKE_HEAD_2",
             (snakeSegments[2].x-1) * cellSize + offsetX + cellSize/2,
             (snakeSegments[2].y-1) * cellSize + offsetY + cellSize/2,
             secondRot,
@@ -552,9 +526,8 @@ function love.draw()
                         end
                         
                         -- Draw corner piece with flipping
-                        love.graphics.draw(
-                            characterspritesheet1,
-                            snakebodycorenersprite,
+                        sprites:draw(
+                            "SNAKE_BODY_CORNER",
                             (curr.x-1) * cellSize + offsetX + cellSize/2,
                             (curr.y-1) * cellSize + offsetY + cellSize/2,
                             cornerRot,
@@ -579,9 +552,8 @@ function love.draw()
                     elseif dx == -1 or dx > 1 then
                         rot = math.pi/2
                     end
-                    love.graphics.draw(
-                        characterspritesheet1,
-                        snakebodysprite,
+                    sprites:draw(
+                        "SNAKE_BODY",
                         (curr.x-1) * cellSize + offsetX + cellSize/2,
                         (curr.y-1) * cellSize + offsetY + cellSize/2,
                         rot,
@@ -604,10 +576,9 @@ function love.draw()
 
     for _, apple in ipairs(apples) do
         -- Use gold sprite for gold apples, red sprite for regular apples
-        local sprite = apple.gold and goldapplesprite or redapplesprite
-        love.graphics.draw(
-            characterspritesheet1,
-            sprite,
+        local spriteName = apple.gold and "GOLD_APPLE" or "RED_APPLE"
+        sprites:draw(
+            spriteName,
             (apple.x-1) * cellSize + offsetX + cellSize/2,
             (apple.y-1) * cellSize + offsetY + cellSize/2,
             0,
