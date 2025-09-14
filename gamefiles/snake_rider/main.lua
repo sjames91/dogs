@@ -1,70 +1,7 @@
--- Spawns an apple not on the snake or other apples
-function spawnApple()
-    local available = {}
-    -- Build a set of occupied positions for fast lookup
-    local occupied = {}
-    for _, segment in ipairs(snakeSegments) do
-        occupied[segment.x .. ',' .. segment.y] = true
-    end
-    -- Mark existing apple positions as occupied
-    for _, apple in ipairs(apples) do
-        occupied[apple.x .. ',' .. apple.y] = true
-    end
-    -- Collect all unoccupied positions
-    for x = 1, gridXcount do
-        for y = 1, gridYcount do
-            if not occupied[x .. ',' .. y] then
-                table.insert(available, {x = x, y = y})
-            end
-        end
-    end
 
-    -- Pick a random available position
-    if #available > 0 then
-        local pos = available[love.math.random(1, #available)]
-        local newApple = {
-            x = pos.x, 
-            y = pos.y, 
-            timer = love.math.random(5, 15) -- Random lifetime 5-15 seconds
-        }
-        table.insert(apples, newApple)
-    end
-end
+local apple_spawns = require("item_spawns")
 
-function spawnGoldApple()
-    local available = {}
-    -- Build a set of occupied positions for fast lookup
-    local occupied = {}
-    for _, segment in ipairs(snakeSegments) do
-        occupied[segment.x .. ',' .. segment.y] = true
-    end
-    -- Mark existing apple positions as occupied
-    for _, apple in ipairs(apples) do
-        occupied[apple.x .. ',' .. apple.y] = true
-    end
-    -- Collect all unoccupied positions
-    for x = 1, gridXcount do
-        for y = 1, gridYcount do
-            if not occupied[x .. ',' .. y] then
-                table.insert(available, {x = x, y = y})
-            end
-        end
-    end
-
-    -- Pick a random available position
-    if #available > 0 then
-        local pos = available[love.math.random(1, #available)]
-        local newApple = {
-            x = pos.x,
-            y = pos.y,
-            timer = love.math.random(8, 12), -- Gold apples last longer
-            gold = true -- Mark as gold apple
-        }
-        table.insert(apples, newApple)
-    end
-end
-
-function love.load()
+function love.load() 
     love.graphics.setDefaultFilter('nearest', 'nearest')
     characterspritesheet1 = love.graphics.newImage("assets/characters_sprites/characterspritesheet1.png") 
     cellSize = 64
@@ -244,7 +181,7 @@ function love.update(dt)
     if appleSpawnTimer >= spawnRate then
         appleSpawnTimer = 0
         if #apples < 10 then  -- Limit to 10 apples on screen
-            spawnApple()
+            apple_spawns.spawnApple()
         end
     end
 
@@ -261,7 +198,7 @@ function love.update(dt)
             end
         end
         if not hasGold then
-            spawnGoldApple()
+            apple_spawns.spawnGoldApple()
         end
     end
 
@@ -424,7 +361,7 @@ function love.keypressed(key, scancode)
     if key == "up" and gameState == "waiting" then
         gameState = "playing"
         directionQueue = {'up'}  -- Set initial direction to up
-        spawnApple()  -- Spawn first apple when game starts
+        apple_spawns.spawnApple()  -- Spawn first apple when game starts
         return
     end
     
@@ -687,9 +624,9 @@ function love.draw()
         love.graphics.setFont(love.graphics.newFont(96))  -- 4x larger than normal text
         local text
         if isNewHighScore then
-            text = "High Score" .. finalScore
+            text = "NEW HIGH SCORE " .. finalScore
         else
-            text = "Final Score" .. finalScore
+            text = "FINAL SCORE " .. finalScore
         end
         local textWidth = love.graphics.getFont():getWidth(text)
         local textHeight = love.graphics.getFont():getHeight()
