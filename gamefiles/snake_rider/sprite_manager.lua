@@ -82,6 +82,39 @@ function SpriteManager:createAnimation(baseName, startX, startY, frameWidth, fra
     return frames
 end
 
+-- Simple JSON parser for basic sprite data
+local function parseJSON(jsonString)
+    -- Remove whitespace
+    jsonString = jsonString:gsub("%s+", "")
+    
+    -- Simple parser for our specific JSON structure
+    local image = jsonString:match('"image":"([^"]+)"')
+    local sprites = {}
+    
+    -- Find the sprites section
+    local spritesSection = jsonString:match('"sprites":%{(.-)%}%}$')
+    if spritesSection then
+        -- Parse each sprite entry
+        for name, data in spritesSection:gmatch('"([^"]+)":%{([^}]+)%}') do
+            local x = tonumber(data:match('"x":(%d+)'))
+            local y = tonumber(data:match('"y":(%d+)'))
+            local w = tonumber(data:match('"w":(%d+)'))
+            local h = tonumber(data:match('"h":(%d+)'))
+            
+            if x and y and w and h then
+                sprites[name] = {x = x, y = y, w = w, h = h}
+            end
+        end
+    end
+    
+    return {
+        spriteSheet = {
+            image = image,
+            sprites = sprites
+        }
+    }
+end
+
 -- Load sprite manager from JSON file
 function SpriteManager.fromJSON(jsonPath)
     local jsonData = love.filesystem.read(jsonPath)
@@ -89,10 +122,7 @@ function SpriteManager.fromJSON(jsonPath)
         error("Could not read JSON file: " .. jsonPath)
     end
     
-    -- Simple JSON parser for sprite data (you could use a proper JSON library)
-    local success, data = pcall(function()
-        return love.data.decode("data", "json", jsonData)
-    end)
+    local success, data = pcall(parseJSON, jsonData)
     
     if not success then
         error("Could not parse JSON file: " .. jsonPath)

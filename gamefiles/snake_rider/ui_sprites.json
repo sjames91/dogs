@@ -1,0 +1,15 @@
+{
+  "spriteSheet": {
+    "image": "assets/ui/ui_elements.png",
+    "sprites": {
+      "BUTTON_NORMAL": {"x": 0, "y": 0, "w": 64, "h": 24},
+      "BUTTON_HOVER": {"x": 64, "y": 0, "w": 64, "h": 24},
+      "BUTTON_PRESSED": {"x": 128, "y": 0, "w": 64, "h": 24},
+      "PANEL_BG": {"x": 0, "y": 24, "w": 128, "h": 64},
+      "HEALTH_BAR_BG": {"x": 0, "y": 88, "w": 100, "h": 8},
+      "HEALTH_BAR_FILL": {"x": 0, "y": 96, "w": 100, "h": 8},
+      "SCORE_ICON": {"x": 192, "y": 0, "w": 16, "h": 16},
+      "TIME_ICON": {"x": 208, "y": 0, "w": 16, "h": 16}
+    }
+  }
+}

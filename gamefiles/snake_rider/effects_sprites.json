@@ -1,0 +1,16 @@
+{
+  "spriteSheet": {
+    "image": "assets/effects/particles.png",
+    "sprites": {
+      "EXPLOSION_FRAME_1": {"x": 0, "y": 0, "w": 32, "h": 32},
+      "EXPLOSION_FRAME_2": {"x": 32, "y": 0, "w": 32, "h": 32},
+      "EXPLOSION_FRAME_3": {"x": 64, "y": 0, "w": 32, "h": 32},
+      "EXPLOSION_FRAME_4": {"x": 96, "y": 0, "w": 32, "h": 32},
+      "SPARKLE_SMALL": {"x": 0, "y": 32, "w": 8, "h": 8},
+      "SPARKLE_MEDIUM": {"x": 8, "y": 32, "w": 16, "h": 16},
+      "SPARKLE_LARGE": {"x": 24, "y": 32, "w": 24, "h": 24},
+      "SMOKE_PUFF": {"x": 48, "y": 32, "w": 16, "h": 16},
+      "STAR_PARTICLE": {"x": 64, "y": 32, "w": 12, "h": 12}
+    }
+  }
+}
